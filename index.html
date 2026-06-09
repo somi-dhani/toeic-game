@@ -132,10 +132,10 @@ button{cursor:pointer;font-family:inherit;transition:all .15s}
     <div class="setup-desc">Google AI Studio에서 발급받은 API 키를 입력하세요. 키는 이 브라우저에만 저장되며 외부로 전송되지 않습니다.</div>
     <label class="input-label">API 키</label>
     <div class="key-row">
-      <input type="password" class="key-input" id="api-key-input" placeholder="API 키를 붙여넣으세요">
+      <input type="password" class="key-input" id="api-key-input" placeholder="sk-...">
       <button class="btn btn-primary" onclick="saveKey()">저장하고 시작</button>
     </div>
-    <div class="setup-note">키가 없다면 <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com</a>에서 무료 발급 가능합니다.</div>
+    <div class="setup-note">키가 없다면 <a href="https://platform.openai.com/api-keys/apikey" target="_blank">platform.openai.com/api-keys</a>에서 무료 발급 가능합니다.</div>
   </div>
 </div>
 
@@ -185,7 +185,7 @@ button{cursor:pointer;font-family:inherit;transition:all .15s}
     </select>
   </div>
   <button class="btn btn-primary btn-block" id="start-btn" onclick="startGame()" disabled>파트를 먼저 선택하세요</button>
-  <p style="font-size:12px;color:var(--text3);text-align:center;margin-top:10px">Gemini AI가 실시간으로 TOEIC 실전 난이도 문제를 출제합니다</p>
+  <p style="font-size:12px;color:var(--text3);text-align:center;margin-top:10px">GPT-4o mini가 실시간으로 TOEIC 실전 난이도 문제를 출제합니다</p>
 </div>
 
 <div id="screen-loading" class="screen">
@@ -246,7 +246,7 @@ button{cursor:pointer;font-family:inherit;transition:all .15s}
 
 </div>
 <script>
-const GEMINI_URL='https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+const OPENAI_URL='https://api.openai.com/v1/chat/completions';
 const LS={key:'toeic_api_key',stats:'toeic_stats',history:'toeic_history',best:'toeic_best'};
 let S={part:null,qs:[],cur:0,score:0,xp:0,streak:0,maxStreak:0,hist:[],wrongIdx:[],answered:false,timerMax:30,qCount:10,isReview:false,apiKey:''};
 
@@ -311,10 +311,10 @@ async function genQ(){
   const prompt=`너는 TOEIC 990점 출제 전문가다.\n${desc[S.part]}\n총 ${sets}세트 생성.\n반드시 순수 JSON만 반환. 마크다운 없이.\n\n{"questions":[{"part":"${S.part}","type":"문제유형","passage":"지문(Part5=null,Part6,7=지문텍스트,Part6빈칸=[___])","stem":"문제문장(빈칸=_____)","choices":["(A)","(B)","(C)","(D)"],"answer":0,"explanation":{"rule":"핵심 문법/어휘 규칙 1문장 (예: 전치사 뒤에는 명사/동명사가 온다)","why_correct":"정답이 맞는 이유 1문장","why_wrong":"나머지 3개 오답이 틀린 이유 각각 1줄씩 (예: (A) 동사원형이므로 불가 / (B) 형용사이므로 불가)","examples":["실전 예문1 — 한국어 뜻","실전 예문2 — 한국어 뜻","실전 예문3 — 한국어 뜻"],"tip":"시험장에서 5초 안에 판단하는 실전 기준 1문장"}}]}\n\nexamples는 이 문제의 핵심 규칙을 보여주는 실제 영어 예문 3개. 각각 \"영어 예문 — 한국어 뜻\" 형식.\nanswer는 0=A,1=B,2=C,3=D. 실제 TOEIC 시험 난이도.`;
   document.getElementById('loading-msg').textContent='Part '+S.part+' 문제 '+S.qCount+'개 생성 중...';
   try{
-    const isOAuth=S.apiKey.startsWith('AQ.')||S.apiKey.startsWith('ya29.');const fetchHdrs={'Content-Type':'application/json'};if(isOAuth)fetchHdrs['Authorization']='Bearer '+S.apiKey;const fetchUrl=isOAuth?GEMINI_URL:GEMINI_URL+'?key='+S.apiKey;const res=await fetch(fetchUrl,{method:'POST',headers:fetchHdrs,body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.7,maxOutputTokens:4000}})});
+    const res=await fetch(OPENAI_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+S.apiKey},body:JSON.stringify({model:'gpt-4o-mini',messages:[{role:'user',content:prompt}],max_tokens:4000,temperature:0.7})});
     const data=await res.json();
-    if(data.error)throw new Error(data.error.message);
-    let txt=data.candidates[0].content.parts[0].text;
+    if(data.error)throw new Error(data.error.message);if(!data.choices)throw new Error('응답 오류');
+    let txt=data.choices[0].message.content;
     txt=txt.replace(/```json|```/g,'').trim();
     const s=txt.indexOf('{'),e=txt.lastIndexOf('}')+1;
     const parsed=JSON.parse(txt.substring(s,e));
